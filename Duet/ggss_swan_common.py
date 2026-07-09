@@ -1,12 +1,4 @@
-
-
-diff --git a/ggss_swan_common.py b/ggss_swan_common.py\n
-new file mode 100644\n
-index 0000000..25f9691\n
---- /dev/null\n
-+++ b/ggss_swan_common.py\n
-@@ -0,0 +1,129 @@\n
-+#!/usr/bin/env python3\n
++#!/usr/bin/env python\n
 +"""Shared helpers for GGSS/SWAN repo pairing and git command execution."""\n
 +\n
 +from __future__ import annotations\n
