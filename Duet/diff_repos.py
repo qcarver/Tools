@@ -1,4 +1,4 @@
-+#!/usr/bin/env python3\n
++#!/usr/bin/env python\n
 +"""\n
 +Diff GGSS and SWAN repositories by cloning locally and comparing working trees.\n
 +\n
