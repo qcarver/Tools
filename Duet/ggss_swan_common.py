@@ -1,132 +1,132 @@
-+#!/usr/bin/env python\n
-+"""Shared helpers for GGSS/SWAN repo pairing and git command execution."""\n
-+\n
-+from __future__ import annotations\n
-+\n
-+import os\n
-+import subprocess\n
-+import sys\n
-+from pathlib import Path\n
-+\n
-+VALID_REPOS = {"Director", "MnC", "Scheduler", "Tools"}\n
-+\n
-+\n
-+def run_git(args: list[str], cwd: str | Path | None = None) -> tuple[str, str, int]:\n
-+    result = subprocess.run(\n
-+        ["git"] + args,\n
-+        cwd=str(cwd) if cwd is not None else None,\n
-+        capture_output=True,\n
-+        text=True,\n
-+    )\n
-+    return result.stdout.strip(), result.stderr.strip(), result.returncode\n
-+\n
-+\n
-+def die(msg: str) -> None:\n
-+    print(f"ERROR: {msg}")\n
-+    raise SystemExit(1)\n
-+\n
-+\n
-+def extract_repo_name_from_path(path: str) -> str:\n
-+    """Extract repo name from the final path component."""\n
-+    tail = os.path.basename(path.rstrip("\\/"))\n
-+    if tail in VALID_REPOS:\n
-+        return tail\n
-+    die(\n
-+        f"Cannot determine repo name from upstream path '{path}'. "\n
-+        f"Expected one of: {sorted(VALID_REPOS)}"\n
-+    )\n
-+\n
-+\n
-+def classify_upstream_flex(path: str) -> tuple[str, str]:\n
-+    """\n
-+    Classify upstream as GGSS or SWAN based on path content and trailing repo name.\n
-+    Returns (classification, repo_name).\n
-+    """\n
-+    repo = extract_repo_name_from_path(path)\n
-+    is_swan = "swan" in path.lower()\n
-+    return ("SWAN" if is_swan else "GGSS"), repo\n
-+\n
-+\n
-+def toggle_upstream_path(path: str, repo: str, current_name: str) -> str:\n
-+    """\n
-+    Toggle SWAN insertion/removal while preserving the rest of the path:\n
-+    - SWAN -> GGSS: remove SWAN segment\n
-+    - GGSS -> SWAN: insert SWAN segment before repo segment\n
-+    """\n
-+    parts = path.replace("/", "\\").split("\\")\n
-+    parts = [p for p in parts if p]\n
-+\n
-+    parts_no_swan = [p for p in parts if p.lower() != "swan"]\n
-+\n
-+    try:\n
-+        idx = parts_no_swan.index(repo)\n
-+    except ValueError:\n
-+        die(f"Repo '{repo}' not found in upstream path '{path}'.")\n
-+\n
-+    if current_name == "SWAN":\n
-+        new_parts = parts_no_swan\n
-+    else:\n
-+        new_parts = parts_no_swan[:idx] + ["SWAN"] + parts_no_swan[idx:]\n
-+\n
-+    new_path = "\\".join(new_parts)\n
-+    if path.startswith("\\\\"):\n
-+        new_path = "\\\\" + new_path\n
-+\n
-+    return new_path\n
-+\n
-+\n
-+def detect_repo_name() -> str:\n
-+    git_root = Path.cwd() / ".git"\n
-+    if not git_root.exists():\n
-+        print("ERROR: Script must be run from repo root.")\n
-+        sys.exit(1)\n
-+\n
-+    cwd_name = Path.cwd().name\n
-+    if cwd_name not in VALID_REPOS:\n
-+        die(f"Current directory '{cwd_name}' is not one of: {sorted(VALID_REPOS)}")\n
-+\n
-+    return cwd_name\n
-+\n
-+\n
-+def detect_current_upstream() -> str:\n
-+    out, _, code = run_git(["remote", "get-url", "origin"])\n
-+    if code != 0:\n
-+        die("Not a git repository or no remote named 'origin'.")\n
-+    return out\n
-+\n
-+\n
-+def classify_upstream(path: str, repo: str | None = None) -> tuple[str, str]:\n
-+    """Public wrapper. Returns (classification, path)."""\n
-+    name, extracted_repo = classify_upstream_flex(path)\n
-+    if repo and repo != extracted_repo:\n
-+        die(f"Repo mismatch: expected '{repo}', got '{extracted_repo}' from '{path}'.")\n
-+    return name, path\n
-+\n
-+\n
-+def paired_upstream(repo: str, current_url: str) -> tuple[str, str]:\n
-+    """Return (other_classification, toggled_url)."""\n
-+    current_name, extracted_repo = classify_upstream_flex(current_url)\n
-+    if extracted_repo != repo:\n
-+        die(\n
-+            f"Repo mismatch: expected '{repo}', got '{extracted_repo}' from '{current_url}'."\n
-+        )\n
-+\n
-+    new_path = toggle_upstream_path(current_url, repo, current_name)\n
-+    new_name = "GGSS" if current_name == "SWAN" else "SWAN"\n
-+    return new_name, new_path\n
-+\n
-+\n
-+def normalize_repo_selector(sel: str | None) -> str | None:\n
-+    if sel is None:\n
-+        return None\n
-+\n
-+    s = sel.strip().upper()\n
-+    if s in ("G", "GGSS"):\n
-+        return "GGSS"\n
-+    if s in ("S", "SWAN"):\n
-+        return "SWAN"\n
-+\n
-+    die(f"Invalid repo selector '{sel}'. Use G|GGSS or S|SWAN.")\n
+#!/usr/bin/env python
+"""Shared helpers for GGSS/SWAN repo pairing and git command execution."""
 
-\n
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+VALID_REPOS = {"Director", "MnC", "Scheduler", "Tools"}
+
+
+def run_git(args: list[str], cwd: str | Path | None = None) -> tuple[str, str, int]:
+    result = subprocess.run(
+        ["git"] + args,
+        cwd=str(cwd) if cwd is not None else None,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip(), result.stderr.strip(), result.returncode
+
+
+def die(msg: str) -> None:
+    print(f"ERROR: {msg}")
+    raise SystemExit(1)
+
+
+def extract_repo_name_from_path(path: str) -> str:
+    """Extract repo name from the final path component."""
+    tail = os.path.basename(path.rstrip("\\/"))
+    if tail in VALID_REPOS:
+        return tail
+    die(
+        f"Cannot determine repo name from upstream path '{path}'. "
+        f"Expected one of: {sorted(VALID_REPOS)}"
+    )
+
+
+def classify_upstream_flex(path: str) -> tuple[str, str]:
+    """
+    Classify upstream as GGSS or SWAN based on path content and trailing repo name.
+    Returns (classification, repo_name).
+    """
+    repo = extract_repo_name_from_path(path)
+    is_swan = "swan" in path.lower()
+    return ("SWAN" if is_swan else "GGSS"), repo
+
+
+def toggle_upstream_path(path: str, repo: str, current_name: str) -> str:
+    """
+    Toggle SWAN insertion/removal while preserving the rest of the path:
+    - SWAN -> GGSS: remove SWAN segment
+    - GGSS -> SWAN: insert SWAN segment before repo segment
+    """
+    parts = path.replace("/", "\\").split("\\")
+    parts = [p for p in parts if p]
+
+    parts_no_swan = [p for p in parts if p.lower() != "swan"]
+
+    try:
+        idx = parts_no_swan.index(repo)
+    except ValueError:
+        die(f"Repo '{repo}' not found in upstream path '{path}'.")
+
+    if current_name == "SWAN":
+        new_parts = parts_no_swan
+    else:
+        new_parts = parts_no_swan[:idx] + ["SWAN"] + parts_no_swan[idx:]
+
+    new_path = "\\".join(new_parts)
+    if path.startswith("\\\\"):
+        new_path = "\\\\" + new_path
+
+    return new_path
+
+
+def detect_repo_name() -> str:
+    git_root = Path.cwd() / ".git"
+    if not git_root.exists():
+        print("ERROR: Script must be run from repo root.")
+        sys.exit(1)
+
+    cwd_name = Path.cwd().name
+    if cwd_name not in VALID_REPOS:
+        die(f"Current directory '{cwd_name}' is not one of: {sorted(VALID_REPOS)}")
+
+    return cwd_name
+
+
+def detect_current_upstream() -> str:
+    out, _, code = run_git(["remote", "get-url", "origin"])
+    if code != 0:
+        die("Not a git repository or no remote named 'origin'.")
+    return out
+
+
+def classify_upstream(path: str, repo: str | None = None) -> tuple[str, str]:
+    """Public wrapper. Returns (classification, path)."""
+    name, extracted_repo = classify_upstream_flex(path)
+    if repo and repo != extracted_repo:
+        die(f"Repo mismatch: expected '{repo}', got '{extracted_repo}' from '{path}'.")
+    return name, path
+
+
+def paired_upstream(repo: str, current_url: str) -> tuple[str, str]:
+    """Return (other_classification, toggled_url)."""
+    current_name, extracted_repo = classify_upstream_flex(current_url)
+    if extracted_repo != repo:
+        die(
+            f"Repo mismatch: expected '{repo}', got '{extracted_repo}' from '{current_url}'."
+        )
+
+    new_path = toggle_upstream_path(current_url, repo, current_name)
+    new_name = "GGSS" if current_name == "SWAN" else "SWAN"
+    return new_name, new_path
+
+
+def normalize_repo_selector(sel: str | None) -> str | None:
+    if sel is None:
+        return None
+
+    s = sel.strip().upper()
+    if s in ("G", "GGSS"):
+        return "GGSS"
+    if s in ("S", "SWAN"):
+        return "SWAN"
+
+    die(f"Invalid repo selector '{sel}'. Use G|GGSS or S|SWAN.")
+
+
 
